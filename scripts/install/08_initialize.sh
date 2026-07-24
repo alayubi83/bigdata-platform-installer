@@ -187,6 +187,44 @@ ${INSTALL_USER}:${INSTALL_GROUP} \
 
 }
 
+###############################################################################
+# setup_passwordless_ssh
+###############################################################################
+
+setup_passwordless_ssh() {
+
+log_info "Configuring passwordless SSH"
+
+mkdir -p "${HOME}/.ssh"
+
+chmod 700 "${HOME}/.ssh"
+
+if [ ! -f "${HOME}/.ssh/id_rsa" ]; then
+
+ssh-keygen -q \
+-t rsa \
+-b 4096 \
+-N "" \
+-f "${HOME}/.ssh/id_rsa"
+
+fi
+
+touch "${HOME}/.ssh/authorized_keys"
+
+grep -qxF "$(cat ${HOME}/.ssh/id_rsa.pub)" \
+"${HOME}/.ssh/authorized_keys" \
+|| cat "${HOME}/.ssh/id_rsa.pub" >> "${HOME}/.ssh/authorized_keys"
+
+chmod 600 "${HOME}/.ssh/authorized_keys"
+
+ssh-keyscan -H localhost >> "${HOME}/.ssh/known_hosts" 2>/dev/null || true
+
+ssh-keyscan -H "$(hostname)" >> "${HOME}/.ssh/known_hosts" 2>/dev/null || true
+
+ssh -o BatchMode=yes localhost true
+
+}
+
 
 
 ###############################################################################
@@ -198,7 +236,7 @@ main(){
 
 log_info "Starting initialization"
 
-
+setup_passwordless_ssh
 
 initialize_hadoop
 

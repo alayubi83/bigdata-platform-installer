@@ -69,10 +69,12 @@ download_hadoop(){
 
         mkdir -p ${BASE_DIR}/${DOWNLOAD_DIR}
 
-
-        wget -O \
-        ${BASE_DIR}/${DOWNLOAD_DIR}/${FILE_NAME} \
-        ${HADOOP_URL}
+        wget \
+        -c \
+        --tries=20 \
+        --timeout=60 \
+        -O "${BASE_DIR}/${DOWNLOAD_DIR}/${FILE_NAME}" \
+        "${HADOOP_URL}"
 
     fi
 

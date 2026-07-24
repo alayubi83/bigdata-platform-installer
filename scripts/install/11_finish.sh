@@ -11,245 +11,160 @@
 set -e
 set -o pipefail
 
-
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-
 
 source "${BASE_DIR}/scripts/common.sh"
 source "${BASE_DIR}/scripts/config.sh"
 
-
-
-REPORT_FILE="${BASE_DIR}/logs/install-report.txt"
-
-
-
 ###############################################################################
-# Generate Report
+# Environment
 ###############################################################################
 
-generate_report(){
+load_environment() {
 
+    export JAVA_HOME="${JAVA_HOME}"
+    export HADOOP_HOME="${HADOOP_HOME}"
+    export HADOOP_CONF_DIR="${HADOOP_CONF_DIR}"
+    export HIVE_HOME="${HIVE_HOME}"
+    export SPARK_HOME="${SPARK_HOME}"
 
-log_info "Generating installation report"
-
-
-
-cat > ${REPORT_FILE} <<EOF
-
-============================================================
-BIG DATA PLATFORM INSTALLATION REPORT
-============================================================
-
-
-Project
--------
-${PROJECT_NAME}
-
-
-Installation Directory
-----------------------
-${INSTALL_ROOT}
-
-
-Versions
---------
-
-Java
-----
-${JAVA_VERSION}
-
-
-Hadoop
-------
-${HADOOP_VERSION}
-
-
-Hive
-----
-${HIVE_VERSION}
-
-
-Spark
------
-${SPARK_VERSION}
-
-
-Scala
------
-${SCALA_VERSION}
-
-
-PostgreSQL
-----------
-${POSTGRES_VERSION}
-
-
-
-Configuration
--------------
-
-Install User
-------------
-${INSTALL_USER}
-
-
-Timezone
---------
-${TIMEZONE}
-
-
-
-Hadoop Web UI
--------------
-
-NameNode
-http://localhost:${NAMENODE_HTTP_PORT}
-
-
-ResourceManager
-http://localhost:${RM_WEB_PORT}
-
-
-NodeManager
-http://localhost:${NM_WEB_PORT}
-
-
-
-MapReduce History Server
-------------------------
-
-http://localhost:${JOBHISTORY_WEB_PORT}
-
-
-
-Spark History Server
---------------------
-
-http://localhost:${SPARK_HISTORY_PORT}
-
-
-
-Directories
------------
-
-Hadoop
-${HADOOP_HOME}
-
-
-Hive
-${HIVE_HOME}
-
-
-Spark
-${SPARK_HOME}
-
-
-
-============================================================
-INSTALLATION FINISHED
-============================================================
-
-
-EOF
-
-
+    export PATH="${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:${HIVE_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 
 }
 
-
-
 ###############################################################################
-# Display Summary
+# Host Information
 ###############################################################################
 
-display_summary(){
+print_system_information() {
 
+    echo
+    echo "============================================================"
+    echo "System Information"
+    echo "============================================================"
 
-echo
-
-echo "============================================================"
-
-echo " BIG DATA PLATFORM INSTALLATION COMPLETED "
-
-echo "============================================================"
-
-
-echo
-
-echo "Components:"
-
-echo " Java        : ${JAVA_VERSION}"
-
-echo " Hadoop      : ${HADOOP_VERSION}"
-
-echo " Hive        : ${HIVE_VERSION}"
-
-echo " Spark       : ${SPARK_VERSION}"
-
-echo " PostgreSQL  : ${POSTGRES_VERSION}"
-
-
-echo
-
-echo "Installation:"
-
-echo "${INSTALL_ROOT}"
-
-
-echo
-
-echo "Web Interface:"
-
-echo "NameNode             : http://localhost:${NAMENODE_HTTP_PORT}"
-
-echo "ResourceManager      : http://localhost:${RM_WEB_PORT}"
-
-echo "NodeManager          : http://localhost:${NM_WEB_PORT}"
-
-echo "HistoryServer        : http://localhost:${JOBHISTORY_WEB_PORT}"
-
-echo "Spark History        : http://localhost:${SPARK_HISTORY_PORT}"
-
-
-echo
-
-echo "Report:"
-
-echo "${REPORT_FILE}"
-
-
-echo
-
-echo "============================================================"
-
+    echo "Hostname       : $(hostname)"
+    echo "IP Address     : $(hostname -I | awk '{print $1}')"
+    echo "Install Root   : ${INSTALL_ROOT}"
+    echo "Java Home      : ${JAVA_HOME}"
+    echo "Hadoop Home    : ${HADOOP_HOME}"
+    echo "Hive Home      : ${HIVE_HOME}"
+    echo "Spark Home     : ${SPARK_HOME}"
 
 }
 
+###############################################################################
+# Web UI
+###############################################################################
 
+print_web_ui() {
+
+    IP=$(hostname -I | awk '{print $1}')
+
+    echo
+    echo "============================================================"
+    echo "Web UI"
+    echo "============================================================"
+
+    echo "NameNode            http://${IP}:${NAMENODE_HTTP_PORT}"
+    echo "ResourceManager     http://${IP}:${RM_WEB_PORT}"
+    echo "JobHistory          http://${IP}:${JOBHISTORY_WEB_PORT}"
+    echo "Spark History       http://${IP}:${SPARK_HISTORY_PORT}"
+
+}
+
+###############################################################################
+# Java Process
+###############################################################################
+
+print_process() {
+
+    echo
+    echo "============================================================"
+    echo "Java Process"
+    echo "============================================================"
+
+    jps -l || true
+
+}
+
+###############################################################################
+# Installed Version
+###############################################################################
+
+print_versions() {
+
+    echo
+    echo "============================================================"
+    echo "Installed Version"
+    echo "============================================================"
+
+    echo "Java       : ${JAVA_VERSION}"
+    echo "Hadoop     : ${HADOOP_VERSION}"
+    echo "Hive       : ${HIVE_VERSION}"
+    echo "Spark      : ${SPARK_VERSION}"
+    echo "PostgreSQL : ${POSTGRES_VERSION}"
+
+}
+
+###############################################################################
+# Log Files
+###############################################################################
+
+print_logs() {
+
+    echo
+    echo "============================================================"
+    echo "Log Files"
+    echo "============================================================"
+
+    echo "Installer Log : ${BASE_DIR}/logs/install.log"
+
+    [ -f "${LOG_DIR}/jps.log" ] &&
+        echo "JPS Log       : ${LOG_DIR}/jps.log"
+
+    [ -f "${LOG_DIR}/hive-metastore.log" ] &&
+        echo "Hive Log      : ${LOG_DIR}/hive-metastore.log"
+
+    [ -f "${LOG_DIR}/spark-history.log" ] &&
+        echo "Spark Log     : ${LOG_DIR}/spark-history.log"
+
+}
+
+###############################################################################
+# Finish
+###############################################################################
+
+finish_message() {
+
+    echo
+    echo "============================================================"
+    echo "INSTALLATION SUCCESSFULLY COMPLETED"
+    echo "============================================================"
+    echo
+
+}
 
 ###############################################################################
 # Main
 ###############################################################################
 
-main(){
+main() {
 
+    load_environment
 
-log_info "Finishing installation"
+    print_system_information
 
+    print_versions
 
-generate_report
+    print_web_ui
 
+    print_process
 
-display_summary
+    print_logs
 
-
-log_info "Big Data Platform Ready"
-
-
+    finish_message
 
 }
-
-
 
 main "$@"

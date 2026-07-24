@@ -13,9 +13,7 @@ set -o pipefail
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-source "${BASE_DIR}/config/version.conf"
-source "${BASE_DIR}/config/installer.conf"
-source "${BASE_DIR}/config/cluster.conf"
+source "${BASE_DIR}/scripts/config.sh"
 
 ###############################################################################
 # Environment File

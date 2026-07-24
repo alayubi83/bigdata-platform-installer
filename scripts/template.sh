@@ -17,11 +17,7 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Load Configuration
 ###############################################################################
 
-source "${BASE_DIR}/config/version.conf"
-source "${BASE_DIR}/config/installer.conf"
-source "${BASE_DIR}/config/cluster.conf"
-source "${BASE_DIR}/config/download.conf"
-source "${BASE_DIR}/config/environment.conf"
+source "${BASE_DIR}/scripts/config.sh"
 
 ###############################################################################
 # Render Template
@@ -57,7 +53,7 @@ render_template() {
     done < <(
 
         cat \
-            "${BASE_DIR}/config/version.conf" \
+            "${BASE_DIR}/version.conf" \
             "${BASE_DIR}/config/installer.conf" \
             "${BASE_DIR}/config/cluster.conf" \
             "${BASE_DIR}/config/download.conf" \

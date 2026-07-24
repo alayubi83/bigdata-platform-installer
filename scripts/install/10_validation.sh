@@ -11,310 +11,222 @@
 set -e
 set -o pipefail
 
-
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-
 
 source "${BASE_DIR}/scripts/common.sh"
 source "${BASE_DIR}/scripts/config.sh"
 
-
-
-RESULT=0
-
-
 ###############################################################################
-# Check Command
+# Environment
 ###############################################################################
 
-check_command(){
+load_environment() {
 
-CMD=$1
+    export JAVA_HOME="${JAVA_HOME}"
+    export HADOOP_HOME="${HADOOP_HOME}"
+    export HADOOP_CONF_DIR="${HADOOP_CONF_DIR}"
+    export HIVE_HOME="${HIVE_HOME}"
+    export SPARK_HOME="${SPARK_HOME}"
 
-
-if command -v ${CMD} >/dev/null 2>&1
-then
-
-    log_info "${CMD} OK"
-
-else
-
-    log_error "${CMD} not found"
-
-    RESULT=1
-
-fi
-
+    export PATH="${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:${HIVE_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 
 }
 
-
-
 ###############################################################################
-# Java Validation
+# Helper
 ###############################################################################
 
-validate_java(){
+PASS_COUNT=0
+FAIL_COUNT=0
 
+check_service() {
 
-log_info "Checking Java"
+    local PROCESS="$1"
 
+    if jps | grep -q "${PROCESS}"
+    then
 
-if java -version >/dev/null 2>&1
-then
+        log_info "${PROCESS} : OK"
 
-    java -version
+        PASS_COUNT=$((PASS_COUNT+1))
 
-else
+    else
 
-    log_error "Java failed"
+        log_error "${PROCESS} : FAILED"
 
-    RESULT=1
+        FAIL_COUNT=$((FAIL_COUNT+1))
 
-fi
-
+    fi
 
 }
 
-
-
 ###############################################################################
-# Hadoop Validation
+# Java Process
 ###############################################################################
 
-validate_hadoop(){
+validate_processes() {
 
+    log_info "Checking Java Processes"
 
-log_info "Checking Hadoop"
-
-
-
-${HADOOP_HOME}/bin/hadoop version
-
-
-
-if ${HADOOP_HOME}/bin/hdfs dfs -ls /
-then
-
-    log_info "HDFS OK"
-
-else
-
-    log_error "HDFS failed"
-
-    RESULT=1
-
-fi
-
-
+    check_service NameNode
+    check_service DataNode
+    check_service SecondaryNameNode
+    check_service ResourceManager
+    check_service NodeManager
+    check_service JobHistoryServer
 
 }
 
-
-
 ###############################################################################
-# YARN Validation
+# HDFS
 ###############################################################################
 
-validate_yarn(){
+validate_hdfs() {
 
+    log_info "Checking HDFS"
 
-log_info "Checking YARN"
+    if "${HADOOP_HOME}/bin/hdfs" dfs -ls / >/dev/null 2>&1
+    then
 
+        log_info "HDFS : OK"
 
+        PASS_COUNT=$((PASS_COUNT+1))
 
-${HADOOP_HOME}/bin/yarn node -list
+    else
 
+        log_error "HDFS : FAILED"
 
+        FAIL_COUNT=$((FAIL_COUNT+1))
+
+    fi
 
 }
 
-
-
 ###############################################################################
-# Hive Validation
+# YARN
 ###############################################################################
 
-validate_hive(){
+validate_yarn() {
 
+    log_info "Checking YARN"
 
-log_info "Checking Hive"
+    if "${HADOOP_HOME}/bin/yarn" node -list >/dev/null 2>&1
+    then
 
+        log_info "YARN : OK"
 
+        PASS_COUNT=$((PASS_COUNT+1))
 
-${HIVE_HOME}/bin/hive --version
+    else
 
+        log_error "YARN : FAILED"
 
+        FAIL_COUNT=$((FAIL_COUNT+1))
+
+    fi
 
 }
 
-
-
 ###############################################################################
-# Spark Validation
+# Hive
 ###############################################################################
 
-validate_spark(){
+validate_hive() {
 
+    log_info "Checking Hive"
 
-log_info "Checking Spark"
+    if pgrep -f HiveMetaStore >/dev/null
+    then
 
+        log_info "Hive Metastore : OK"
 
+        PASS_COUNT=$((PASS_COUNT+1))
 
-${SPARK_HOME}/bin/spark-submit \
---version
+    else
 
+        log_error "Hive Metastore : FAILED"
 
+        FAIL_COUNT=$((FAIL_COUNT+1))
+
+    fi
 
 }
 
-
-
 ###############################################################################
-# PostgreSQL Validation
+# Spark
 ###############################################################################
 
-validate_postgres(){
+validate_spark() {
 
+    log_info "Checking Spark"
 
-log_info "Checking PostgreSQL"
+    if pgrep -f HistoryServer >/dev/null
+    then
 
+        log_info "Spark History Server : OK"
 
+        PASS_COUNT=$((PASS_COUNT+1))
 
-if systemctl is-active --quiet postgresql
-then
+    else
 
-    log_info "PostgreSQL running"
+        log_error "Spark History Server : FAILED"
 
-else
+        FAIL_COUNT=$((FAIL_COUNT+1))
 
-    log_error "PostgreSQL not running"
-
-    RESULT=1
-
-fi
-
-
+    fi
 
 }
 
-
-
 ###############################################################################
-# Port Validation
+# Report
 ###############################################################################
 
-validate_ports(){
+validation_report() {
 
+    echo
+    echo "========================================================="
+    echo "Validation Summary"
+    echo "========================================================="
+    echo
+    echo "Passed : ${PASS_COUNT}"
+    echo "Failed : ${FAIL_COUNT}"
+    echo
 
-log_info "Checking ports"
+    if [ "${FAIL_COUNT}" -gt 0 ]
+    then
 
+        log_error "Validation FAILED"
 
+        exit 1
 
-PORTS=(
+    fi
 
-9870
-8088
-8042
-19888
-18080
-9083
-
-)
-
-
-
-for PORT in "${PORTS[@]}"
-do
-
-
-if ss -lnt | grep -q ":${PORT}"
-then
-
-    log_info "Port ${PORT} OPEN"
-
-else
-
-    log_warn "Port ${PORT} CLOSED"
-
-fi
-
-
-done
-
-
+    log_info "Validation PASSED"
 
 }
-
-
-
-###############################################################################
-# Process Validation
-###############################################################################
-
-validate_process(){
-
-
-log_info "Checking Java processes"
-
-
-
-jps
-
-
-
-}
-
-
 
 ###############################################################################
 # Main
 ###############################################################################
 
-main(){
+main() {
 
+    log_info "Running validation"
 
-log_info "Starting platform validation"
+    load_environment
 
+    validate_processes
 
+    validate_hdfs
 
-validate_java
+    validate_yarn
 
-validate_hadoop
+    validate_hive
 
-validate_yarn
+    validate_spark
 
-validate_hive
-
-validate_spark
-
-validate_postgres
-
-validate_ports
-
-validate_process
-
-
-
-if [ ${RESULT} -eq 0 ]
-then
-
-    log_info "VALIDATION SUCCESS"
-
-else
-
-    log_error "VALIDATION FAILED"
-
-fi
-
-
-
-exit ${RESULT}
-
-
+    validation_report
 
 }
-
-
 
 main "$@"

@@ -24,25 +24,49 @@ source "${BASE_DIR}/scripts/config.sh"
 # Environment
 ###############################################################################
 
-load_environment(){
+load_environment() {
 
+    export JAVA_HOME="${JAVA_HOME}"
+    export HADOOP_HOME="${HADOOP_HOME}"
+    export HADOOP_CONF_DIR="${HADOOP_CONF_DIR}"
+    export HIVE_HOME="${HIVE_HOME}"
+    export SPARK_HOME="${SPARK_HOME}"
 
-export JAVA_HOME=${JAVA_HOME}
-
-export HADOOP_HOME=${HADOOP_HOME}
-
-export HADOOP_CONF_DIR=${HADOOP_CONF_DIR}
-
-export HIVE_HOME=${HIVE_HOME}
-
-export SPARK_HOME=${SPARK_HOME}
-
-
-export PATH=$PATH:${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:${HIVE_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin
-
+    export PATH="${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin:${HIVE_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 
 }
 
+###############################################################################
+# Wait Process
+###############################################################################
+
+wait_process(){
+
+    local PROCESS="$1"
+    local RETRY=30
+
+    while [ ${RETRY} -gt 0 ]
+    do
+
+        if jps | grep -q "${PROCESS}"; then
+
+            log_info "${PROCESS} started."
+
+            return 0
+
+        fi
+
+        sleep 2
+
+        RETRY=$((RETRY-1))
+
+    done
+
+    log_error "${PROCESS} failed to start."
+
+    exit 1
+
+}
 
 
 ###############################################################################
@@ -56,8 +80,8 @@ log_info "Starting HDFS"
 
 
 
-sudo -u ${INSTALL_USER} \
-${HADOOP_HOME}/sbin/start-dfs.sh
+sudo -u "${INSTALL_USER}" \
+"${HADOOP_HOME}/sbin/start-dfs.sh"
 
 
 
@@ -76,8 +100,8 @@ log_info "Starting YARN"
 
 
 
-sudo -u ${INSTALL_USER} \
-${HADOOP_HOME}/sbin/start-yarn.sh
+sudo -u "${INSTALL_USER}" \
+"${HADOOP_HOME}/sbin/start-yarn.sh"
 
 
 
@@ -117,12 +141,12 @@ log_info "Starting Hive Metastore"
 
 
 
-mkdir -p ${LOG_DIR}
+mkdir -p "${LOG_DIR}"
 
 
 
-nohup sudo -u ${INSTALL_USER} \
-${HIVE_HOME}/bin/hive \
+nohup sudo -u "${INSTALL_USER}" \
+"${HIVE_HOME}/bin/hive "\
 --service metastore \
 > ${LOG_DIR}/hive-metastore.log 2>&1 &
 
@@ -147,8 +171,8 @@ mkdir -p ${LOG_DIR}
 
 
 
-nohup sudo -u ${INSTALL_USER} \
-${SPARK_HOME}/sbin/start-history-server.sh \
+nohup sudo -u "${INSTALL_USER}" \
+"${SPARK_HOME}/sbin/start-history-server.sh" \
 > ${LOG_DIR}/spark-history.log 2>&1 || true
 
 
@@ -166,51 +190,175 @@ save_status(){
 
 log_info "Saving service status"
 
+{
 
+echo "======================================"
+date
+echo "======================================"
 
-jps > ${LOG_DIR}/jps.log || true
+jps -l
 
-
+} > "${LOG_DIR}/jps.log"
 
 }
 
+###############################################################################
+# Initialize HDFS
+###############################################################################
 
+initialize_hdfs(){
+
+    log_info "Initializing HDFS"
+
+    ${HADOOP_HOME}/bin/hdfs dfs -mkdir -p /tmp
+
+    ${HADOOP_HOME}/bin/hdfs dfs -chmod 1777 /tmp
+
+    ${HADOOP_HOME}/bin/hdfs dfs -mkdir -p /user
+
+    ${HADOOP_HOME}/bin/hdfs dfs -mkdir -p /user/hive
+
+    ${HADOOP_HOME}/bin/hdfs dfs -mkdir -p /user/hive/warehouse
+
+    ${HADOOP_HOME}/bin/hdfs dfs -chmod 777 /user/hive/warehouse
+
+}
+
+###############################################################################
+# verify_ssh
+###############################################################################
+
+verify_ssh() {
+
+    log_info "Checking passwordless SSH"
+
+    sudo -u "${INSTALL_USER}" \
+    ssh -o BatchMode=yes localhost "echo SSH OK" >/dev/null
+
+}
+
+###############################################################################
+# wait_namenode
+###############################################################################
+
+wait_namenode() {
+
+    log_info "Waiting NameNode"
+
+    for i in {1..30}
+    do
+
+        jps | grep -q NameNode && return
+
+        sleep 2
+
+    done
+
+    log_error "NameNode failed to start"
+
+    exit 1
+
+}
+
+###############################################################################
+# wait_yarn
+###############################################################################
+
+wait_yarn() {
+
+    log_info "Waiting ResourceManager"
+
+    for i in {1..30}
+    do
+
+        jps | grep -q ResourceManager && return
+
+        sleep 2
+
+    done
+
+    log_error "ResourceManager failed"
+
+    exit 1
+
+}
+
+###############################################################################
+# start_hive_metastore
+###############################################################################
+
+start_hive_metastore() {
+
+    log_info "Starting Hive Metastore"
+
+    pgrep -f HiveMetaStore >/dev/null && return
+
+    mkdir -p "${LOG_DIR}"
+
+    nohup sudo -u "${INSTALL_USER}" \
+        "${HIVE_HOME}/bin/hive" \
+        --service metastore \
+        > "${LOG_DIR}/hive-metastore.log" 2>&1 &
+
+}
+
+###############################################################################
+# start_spark_history
+###############################################################################
+
+start_spark_history() {
+
+    log_info "Starting Spark History Server"
+
+    mkdir -p "${LOG_DIR}"
+
+    nohup sudo -u "${INSTALL_USER}" \
+        "${SPARK_HOME}/sbin/start-history-server.sh" \
+        > "${LOG_DIR}/spark-history.log" 2>&1 || true
+
+}
+
+###############################################################################
+# save_status
+###############################################################################
+
+save_status() {
+
+    log_info "Saving service status"
+
+    jps -l > "${LOG_DIR}/jps.log"
+
+}
 
 ###############################################################################
 # Main
 ###############################################################################
 
-main(){
+main() {
 
+    log_info "Starting Big Data services"
 
-log_info "Starting Big Data services"
+    load_environment
 
+    verify_ssh
 
+    start_hdfs
 
-load_environment
+    wait_namenode
 
+    start_yarn
 
-start_hdfs
+    wait_yarn
 
+    start_history_server
 
-start_yarn
+    start_hive_metastore
 
+    start_spark_history
 
-start_history_server
+    save_status
 
-
-start_hive_metastore
-
-
-start_spark_history
-
-
-save_status
-
-
-
-log_info "All services started"
-
+    log_info "All services started"
 
 }
 

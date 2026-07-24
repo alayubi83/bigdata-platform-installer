@@ -66,6 +66,9 @@ else
 
 
     wget \
+        -c \
+        --tries=20 \
+        --timeout=60 \
     -O ${BASE_DIR}/${DOWNLOAD_DIR}/${FILE_NAME} \
     ${HIVE_URL}
 
