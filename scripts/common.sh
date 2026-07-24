@@ -468,3 +468,204 @@ install_packages() {
     done
 
 }
+
+###############################################################################
+# Download Helper
+###############################################################################
+
+download_file() {
+
+    local URL="$1"
+    local OUTPUT="$2"
+
+    mkdir -p "$(dirname "${OUTPUT}")"
+
+    if [ -f "${OUTPUT}" ]; then
+        log_info "File already exists: ${OUTPUT}"
+        return 0
+    fi
+
+    log_info "Downloading ${URL}"
+
+    curl -L --fail --progress-bar \
+        -o "${OUTPUT}" \
+        "${URL}"
+
+}
+
+download_with_retry() {
+
+    local URL="$1"
+    local OUTPUT="$2"
+
+    local MAX_RETRY=5
+    local COUNT=1
+
+    while [ ${COUNT} -le ${MAX_RETRY} ]
+    do
+
+        if download_file "${URL}" "${OUTPUT}"
+        then
+            return 0
+        fi
+
+        warn "Download failed (${COUNT}/${MAX_RETRY})"
+
+        COUNT=$((COUNT+1))
+
+        sleep 5
+
+    done
+
+    error "Unable to download ${URL}"
+
+}
+
+###############################################################################
+# SHA256
+###############################################################################
+
+verify_sha256() {
+
+    local FILE="$1"
+    local EXPECTED="$2"
+
+    local ACTUAL
+
+    ACTUAL=$(sha256sum "${FILE}" | awk '{print $1}')
+
+    if [ "${ACTUAL}" != "${EXPECTED}" ]; then
+
+        error "Checksum verification failed."
+
+    fi
+
+    success "Checksum verified."
+
+}
+
+###############################################################################
+# Archive
+###############################################################################
+
+extract_tar_gz() {
+
+    local FILE="$1"
+    local DEST="$2"
+
+    mkdir -p "${DEST}"
+
+    tar -xzf "${FILE}" \
+        -C "${DEST}" \
+        --strip-components=1
+
+}
+
+extract_tgz() {
+
+    extract_tar_gz "$@"
+
+}
+
+###############################################################################
+# Directory Helper
+###############################################################################
+
+create_directory() {
+
+    local DIR="$1"
+
+    mkdir -p "${DIR}"
+
+}
+
+create_directory_owner() {
+
+    local DIR="$1"
+    local OWNER="$2"
+
+    mkdir -p "${DIR}"
+
+    chown -R "${OWNER}" "${DIR}"
+
+}
+
+###############################################################################
+# Backup
+###############################################################################
+
+backup_file() {
+
+    local FILE="$1"
+
+    if [ -f "${FILE}" ]; then
+
+        cp "${FILE}" "${FILE}.bak"
+
+    fi
+
+}
+
+restore_backup() {
+
+    local FILE="$1"
+
+    if [ -f "${FILE}.bak" ]; then
+
+        mv "${FILE}.bak" "${FILE}"
+
+    fi
+
+}
+
+###############################################################################
+# File Helper
+###############################################################################
+
+append_if_missing() {
+
+    local FILE="$1"
+    local TEXT="$2"
+
+    grep -qxF "${TEXT}" "${FILE}" \
+        || echo "${TEXT}" >> "${FILE}"
+
+}
+
+replace_property() {
+
+    local FILE="$1"
+    local KEY="$2"
+    local VALUE="$3"
+
+    if grep -q "^${KEY}=" "${FILE}"
+    then
+
+        sed -i "s|^${KEY}=.*|${KEY}=${VALUE}|g" "${FILE}"
+
+    else
+
+        echo "${KEY}=${VALUE}" >> "${FILE}"
+
+    fi
+
+}
+
+###############################################################################
+# Symbolic Link
+###############################################################################
+
+safe_symlink() {
+
+    local TARGET="$1"
+    local LINK="$2"
+
+    if [ -L "${LINK}" ]; then
+
+        rm -f "${LINK}"
+
+    fi
+
+    ln -s "${TARGET}" "${LINK}"
+
+}
