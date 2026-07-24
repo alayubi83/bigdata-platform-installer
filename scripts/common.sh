@@ -253,3 +253,218 @@ error "Only Ubuntu supported."
 fi
 
 }
+
+###############################################################################
+# Spinner
+###############################################################################
+
+spinner() {
+
+    local pid=$1
+    local delay=0.10
+    local spin='|/-\'
+
+    while ps -p "${pid}" >/dev/null 2>&1; do
+        for i in $(seq 0 3); do
+            printf "\r[%c] Working..." "${spin:$i:1}"
+            sleep "${delay}"
+        done
+    done
+
+    printf "\r"
+}
+
+###############################################################################
+# Progress
+###############################################################################
+
+progress() {
+
+    local current=$1
+    local total=$2
+
+    local percent=$((current*100/total))
+    local done=$((percent/2))
+    local left=$((50-done))
+
+    printf "\r["
+
+    for ((i=0;i<done;i++)); do
+        printf "="
+    done
+
+    for ((i=0;i<left;i++)); do
+        printf " "
+    done
+
+    printf "] %3d%%" "${percent}"
+
+}
+
+###############################################################################
+# System Information
+###############################################################################
+
+cpu_count() {
+
+    nproc
+
+}
+
+memory_total_mb() {
+
+    free -m | awk '/^Mem:/ {print $2}'
+
+}
+
+disk_available_gb() {
+
+    df -BG / | awk 'NR==2 {gsub("G","",$4);print $4}'
+
+}
+
+###############################################################################
+# Validation
+###############################################################################
+
+check_cpu() {
+
+    CPU=$(cpu_count)
+
+    if [ "${CPU}" -lt 2 ]; then
+
+        warn "Minimum CPU recommended: 2"
+
+    else
+
+        success "CPU : ${CPU}"
+
+    fi
+
+}
+
+check_memory() {
+
+    MEM=$(memory_total_mb)
+
+    if [ "${MEM}" -lt 4096 ]; then
+
+        warn "Minimum RAM recommended: 4 GB"
+
+    else
+
+        success "Memory : ${MEM} MB"
+
+    fi
+
+}
+
+check_disk() {
+
+    DISK=$(disk_available_gb)
+
+    if [ "${DISK}" -lt 30 ]; then
+
+        warn "Minimum disk recommended: 30 GB"
+
+    else
+
+        success "Disk : ${DISK} GB"
+
+    fi
+
+}
+
+###############################################################################
+# Internet
+###############################################################################
+
+check_internet() {
+
+    if ping -c1 github.com >/dev/null 2>&1; then
+
+        success "Internet connection available."
+
+    else
+
+        error "Internet connection unavailable."
+
+    fi
+
+}
+
+###############################################################################
+# Port
+###############################################################################
+
+port_used() {
+
+    local PORT=$1
+
+    ss -tln | awk '{print $4}' | grep -q ":${PORT}$"
+
+}
+
+wait_port() {
+
+    local PORT=$1
+
+    local RETRY=60
+
+    while [ ${RETRY} -gt 0 ]
+    do
+
+        if port_used "${PORT}"; then
+
+            success "Port ${PORT} ready."
+
+            return
+
+        fi
+
+        sleep 2
+
+        RETRY=$((RETRY-1))
+
+    done
+
+    error "Port ${PORT} timeout."
+
+}
+
+###############################################################################
+# Package
+###############################################################################
+
+package_installed() {
+
+    dpkg -s "$1" >/dev/null 2>&1
+
+}
+
+install_package() {
+
+    PKG="$1"
+
+    if package_installed "${PKG}"; then
+
+        log_info "${PKG} already installed."
+
+        return
+
+    fi
+
+    log_info "Installing ${PKG}"
+
+    DEBIAN_FRONTEND=noninteractive apt-get install -y "${PKG}"
+
+}
+
+install_packages() {
+
+    for PKG in "$@"
+    do
+        install_package "${PKG}"
+    done
+
+}
