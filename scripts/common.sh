@@ -669,3 +669,251 @@ safe_symlink() {
     ln -s "${TARGET}" "${LINK}"
 
 }
+
+###############################################################################
+# XML Helper
+###############################################################################
+
+xml_property_exists() {
+
+    local FILE="$1"
+    local NAME="$2"
+
+    grep -q "<name>${NAME}</name>" "${FILE}"
+
+}
+
+xml_remove_property() {
+
+    local FILE="$1"
+    local NAME="$2"
+
+    if ! xml_property_exists "${FILE}" "${NAME}"; then
+        return
+    fi
+
+    cp "${FILE}" "${FILE}.tmp"
+
+    awk -v prop="${NAME}" '
+    BEGIN{
+        remove=0
+    }
+
+    /<property>/{
+        block=$0
+        getline
+        block=block ORS $0
+
+        if($0 ~ "<name>"prop"</name>"){
+            remove=1
+        }else{
+            remove=0
+        }
+
+        while(getline){
+            block=block ORS $0
+            if($0 ~ /<\/property>/){
+                break
+            }
+        }
+
+        if(remove==0){
+            print block
+        }
+
+        next
+    }
+
+    {
+        print
+    }
+    ' "${FILE}.tmp" > "${FILE}"
+
+    rm -f "${FILE}.tmp"
+
+}
+
+xml_add_property() {
+
+    local FILE="$1"
+    local NAME="$2"
+    local VALUE="$3"
+
+    xml_remove_property "${FILE}" "${NAME}"
+
+    sed -i "/<\/configuration>/i\\
+<property>\\
+<name>${NAME}</name>\\
+<value>${VALUE}</value>\\
+</property>" "${FILE}"
+
+}
+
+###############################################################################
+# Environment
+###############################################################################
+
+export_env() {
+
+    local VAR="$1"
+    local VALUE="$2"
+
+    append_if_missing "${HOME}/.bashrc" \
+"export ${VAR}=${VALUE}"
+
+}
+
+remove_env() {
+
+    local VAR="$1"
+
+    sed -i "/export ${VAR}=/d" "${HOME}/.bashrc"
+
+}
+
+###############################################################################
+# Service
+###############################################################################
+
+start_service() {
+
+    systemctl start "$1"
+
+}
+
+stop_service() {
+
+    systemctl stop "$1" || true
+
+}
+
+restart_service() {
+
+    systemctl restart "$1"
+
+}
+
+enable_service() {
+
+    systemctl enable "$1"
+
+}
+
+disable_service() {
+
+    systemctl disable "$1" || true
+
+}
+
+###############################################################################
+# Process
+###############################################################################
+
+wait_process() {
+
+    local PROCESS="$1"
+
+    local COUNT=60
+
+    until pgrep -f "${PROCESS}" >/dev/null
+    do
+
+        sleep 2
+
+        COUNT=$((COUNT-1))
+
+        if [ ${COUNT} -le 0 ]; then
+
+            error "Timeout waiting process ${PROCESS}"
+
+        fi
+
+    done
+
+}
+
+wait_java_process() {
+
+    wait_process "$1"
+
+}
+
+###############################################################################
+# Network
+###############################################################################
+
+wait_host() {
+
+    local HOST="$1"
+
+    until ping -c1 "${HOST}" >/dev/null 2>&1
+    do
+        sleep 2
+    done
+
+}
+
+wait_port_open() {
+
+    local HOST="$1"
+    local PORT="$2"
+
+    local COUNT=60
+
+    until nc -z "${HOST}" "${PORT}" >/dev/null 2>&1
+    do
+
+        sleep 2
+
+        COUNT=$((COUNT-1))
+
+        if [ ${COUNT} -le 0 ]; then
+
+            error "Timeout waiting ${HOST}:${PORT}"
+
+        fi
+
+    done
+
+}
+
+###############################################################################
+# PostgreSQL Helper
+###############################################################################
+
+execute_sql() {
+
+    local SQL="$1"
+
+    psql \
+        -h "${POSTGRES_HOST}" \
+        -p "${POSTGRES_PORT}" \
+        -U "${POSTGRES_USER}" \
+        -d postgres \
+        -c "${SQL}"
+
+}
+
+database_exists() {
+
+    psql \
+        -h "${POSTGRES_HOST}" \
+        -p "${POSTGRES_PORT}" \
+        -U "${POSTGRES_USER}" \
+        -tAc \
+        "SELECT 1 FROM pg_database WHERE datname='$1'" \
+        | grep -q 1
+
+}
+
+user_exists() {
+
+    psql \
+        -h "${POSTGRES_HOST}" \
+        -p "${POSTGRES_PORT}" \
+        -U "${POSTGRES_USER}" \
+        -tAc \
+        "SELECT 1 FROM pg_roles WHERE rolname='$1'" \
+        | grep -q 1
+
+}
