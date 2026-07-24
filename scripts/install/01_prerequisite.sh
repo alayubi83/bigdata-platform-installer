@@ -37,6 +37,14 @@ update_repository() {
 
 upgrade_system() {
 
+    if [ "${INSTALL_UPGRADE_SYSTEM}" != "true" ]; then
+
+        log_info "Skip system upgrade."
+
+        return
+
+    fi
+
     section "System Upgrade"
 
     export DEBIAN_FRONTEND=noninteractive
@@ -121,9 +129,9 @@ configure_locale() {
 
     section "Locale"
 
-    locale-gen en_US.UTF-8
+    locale-gen "${LOCALE}"
 
-    update-locale LANG=en_US.UTF-8
+    update-locale LANG="${LOCALE}"
 
 }
 
@@ -135,7 +143,7 @@ configure_timezone() {
 
     section "Timezone"
 
-    timedatectl set-timezone Asia/Jakarta
+    timedatectl set-timezone "${TIMEZONE}"
 
 }
 
@@ -173,9 +181,9 @@ configure_permission() {
 
     section "Permission"
 
-    chown -R "${SUDO_USER}:${SUDO_USER}" /opt/bigdata
+    chown -R "${INSTALL_USER}:${INSTALL_GROUP}" /opt/bigdata
 
-    chown -R "${SUDO_USER}:${SUDO_USER}" /data
+    chown -R "${INSTALL_USER}:${INSTALL_GROUP}" /data
 
 }
 
