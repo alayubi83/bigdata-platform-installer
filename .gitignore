@@ -1,0 +1,14 @@
+# Download packages
+downloads/
+
+# Log
+logs/
+
+# Temporary files
+*.log
+*.tmp
+
+# macOS
+.DS_Store
+downloads/
+logs/

@@ -15,6 +15,15 @@ set -e
 set -o pipefail
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMMON_SCRIPT="${BASE_DIR}/scripts/common.sh"
+CONFIG_SCRIPT="${BASE_DIR}/scripts/config.sh"
+ENV_SCRIPT="${BASE_DIR}/scripts/environment.sh"
+
+source "${COMMON_SCRIPT}"
+
+source "${CONFIG_SCRIPT}"
+
+source "${ENV_SCRIPT}"
 
 VERSION_FILE="${BASE_DIR}/version.conf"
 
@@ -80,12 +89,10 @@ cat <<'EOF'
 
 ============================================================
 
-Ubuntu      : 22.04
-Java        : OpenJDK 8
-Hadoop      : 3.2.4
-Hive        : 2.3.9
-Spark       : 2.4.8
-PostgreSQL  : 15
+Hadoop      : ${HADOOP_VERSION}
+Hive        : ${HIVE_VERSION}
+Spark       : ${SPARK_VERSION}
+PostgreSQL  : ${POSTGRES_VERSION}
 
 ============================================================
 
@@ -119,15 +126,36 @@ run_module() {
 
 MODULE="$1"
 
-echo
+MODULE_PATH="${SCRIPT_DIR}/${MODULE}"
 
-echo "------------------------------------------------------------"
 
-echo "Running ${MODULE}"
+if [ ! -f "${MODULE_PATH}" ]
+then
 
-echo "------------------------------------------------------------"
+    log_error "Module not found : ${MODULE}"
 
-bash "${SCRIPT_DIR}/${MODULE}"
+    exit 1
+
+fi
+
+
+log_info "Running module : ${MODULE}"
+
+
+bash "${MODULE_PATH}"
+
+
+if [ $? -ne 0 ]
+then
+
+    log_error "Module failed : ${MODULE}"
+
+    exit 1
+
+fi
+
+
+log_info "Module completed : ${MODULE}"
 
 }
 
@@ -172,6 +200,20 @@ main() {
 banner
 
 check_root
+
+log_info "Checking installer modules..."
+
+for MODULE in "${MODULES[@]}"
+do
+
+if [ ! -f "${SCRIPT_DIR}/${MODULE}" ]
+then
+
+log_warn "Skip missing module : ${MODULE}"
+
+fi
+
+done
 
 for MODULE in "${MODULES[@]}"
 do

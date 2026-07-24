@@ -16,6 +16,11 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_DIR="${BASE_DIR}/config"
 
 VERSION_FILE="${BASE_DIR}/version.conf"
+LOG_DIR="${BASE_DIR}/logs"
+DOWNLOAD_DIR="${BASE_DIR}/downloads"
+
+export LOG_DIR
+export DOWNLOAD_DIR
 
 ###############################################################################
 # Check Configuration
