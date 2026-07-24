@@ -917,3 +917,183 @@ user_exists() {
         | grep -q 1
 
 }
+
+###############################################################################
+# HDFS Helper
+###############################################################################
+
+wait_hdfs() {
+
+    local RETRY=60
+
+    until hdfs dfs -ls / >/dev/null 2>&1
+    do
+
+        sleep 2
+
+        RETRY=$((RETRY-1))
+
+        if [ ${RETRY} -le 0 ]; then
+
+            error "HDFS not ready."
+
+        fi
+
+    done
+
+    success "HDFS ready."
+
+}
+
+format_namenode() {
+
+    if [ ! -d "${HDFS_NAME_DIR}/current" ]; then
+
+        log_info "Formatting NameNode..."
+
+        hdfs namenode -format -force -nonInteractive
+
+    else
+
+        log_info "NameNode already formatted."
+
+    fi
+
+}
+
+hdfs_safe_mkdir() {
+
+    local DIR="$1"
+
+    hdfs dfs -test -d "${DIR}" || hdfs dfs -mkdir -p "${DIR}"
+
+}
+
+###############################################################################
+# YARN Helper
+###############################################################################
+
+wait_yarn() {
+
+    wait_port_open localhost "${RM_WEB_PORT}"
+
+}
+
+wait_historyserver() {
+
+    wait_port_open localhost "${JOBHISTORY_WEB_PORT}"
+
+}
+
+###############################################################################
+# Spark Helper
+###############################################################################
+
+wait_spark_history() {
+
+    wait_port_open localhost "${SPARK_HISTORY_PORT}"
+
+}
+
+###############################################################################
+# Banner Helper
+###############################################################################
+
+print_header() {
+
+    clear
+
+    echo
+    echo "============================================================"
+    echo " BIG DATA PLATFORM INSTALLER"
+    echo "============================================================"
+    echo
+
+}
+
+print_step() {
+
+    echo
+    echo "------------------------------------------------------------"
+    echo "$1"
+    echo "------------------------------------------------------------"
+
+}
+
+print_result() {
+
+    echo
+    echo "============================================================"
+    echo " INSTALLATION SUMMARY"
+    echo "============================================================"
+    echo
+
+    java -version 2>&1 | head -n1 || true
+
+    echo
+
+    hdfs version 2>/dev/null | head -n1 || true
+
+    echo
+
+    hive --version 2>/dev/null | head -n1 || true
+
+    echo
+
+    spark-submit --version 2>&1 | head -n1 || true
+
+    echo
+
+    psql --version
+
+    echo
+    echo "============================================================"
+
+}
+
+###############################################################################
+# Cleanup
+###############################################################################
+
+cleanup_on_error() {
+
+    RC=$?
+
+    echo
+    echo "============================================================"
+    echo " INSTALLATION FAILED"
+    echo "============================================================"
+    echo
+    echo "See log:"
+    echo
+    echo "    ${LOG_FILE}"
+    echo
+    exit ${RC}
+
+}
+
+trap cleanup_on_error ERR
+
+###############################################################################
+# Finish
+###############################################################################
+
+initialize_common() {
+
+    mkdir -p "${LOG_DIR}"
+
+    touch "${LOG_FILE}"
+
+    check_root
+
+    check_ubuntu
+
+    check_cpu
+
+    check_memory
+
+    check_disk
+
+    check_internet
+
+}
