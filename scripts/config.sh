@@ -15,6 +15,8 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CONFIG_DIR="${BASE_DIR}/config"
 
+VERSION_FILE="${BASE_DIR}/version.conf"
+
 ###############################################################################
 # Check Configuration
 ###############################################################################
@@ -39,13 +41,25 @@ require_config() {
 
 load_configuration() {
 
-    require_config version.conf
+
+    if [ ! -f "${VERSION_FILE}" ]; then
+
+        echo "Version file not found: ${VERSION_FILE}"
+
+        exit 1
+
+    fi
+
+
     require_config installer.conf
     require_config cluster.conf
     require_config download.conf
     require_config environment.conf
 
-    source "${CONFIG_DIR}/version.conf"
+
+
+    source "${VERSION_FILE}"
+
     source "${CONFIG_DIR}/installer.conf"
     source "${CONFIG_DIR}/cluster.conf"
     source "${CONFIG_DIR}/download.conf"
