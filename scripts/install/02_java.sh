@@ -20,7 +20,7 @@ source "${BASE_DIR}/scripts/common.sh"
 # Variables
 ###############################################################################
 
-JAVA_PACKAGE="openjdk-8-jdk"
+JAVA_PACKAGE="temurin-8-jdk"
 
 ###############################################################################
 # Check Java
@@ -29,6 +29,35 @@ JAVA_PACKAGE="openjdk-8-jdk"
 java_installed() {
 
     command -v java >/dev/null 2>&1
+
+}
+
+###############################################################################
+# Check Temurin Repository
+###############################################################################
+install_temurin_repository() {
+
+    section "Install Temurin Repository"
+
+    if [ -f /etc/apt/sources.list.d/adoptium.list ]; then
+
+        log_info "Temurin repository already exists."
+
+        return
+
+    fi
+
+    mkdir -p /etc/apt/keyrings
+
+    wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public \
+        | gpg --dearmor \
+        -o /etc/apt/keyrings/adoptium.gpg
+
+    echo \
+"deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb jammy main" \
+> /etc/apt/sources.list.d/adoptium.list
+
+    apt-get update
 
 }
 
@@ -138,6 +167,8 @@ finish_java() {
 ###############################################################################
 
 main() {
+
+    install_temurin_repository
 
     install_java
 
